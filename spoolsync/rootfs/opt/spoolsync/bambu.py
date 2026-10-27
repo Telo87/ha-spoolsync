@@ -20,6 +20,20 @@ API = {"global": "https://api.bambulab.com", "china": "https://api.bambulab.cn"}
 WEB = {"global": "https://bambulab.com", "china": "https://bambulab.cn"}
 FILAMENT = "/v1/design-user-service/my/filament/v2"
 PAGE = 100
+# the slicer's headers – the cloud treats the requests like those of a slicer
+HEADERS = {
+    "User-Agent": "bambu_network_agent/01.09.05.01",
+    "X-BBL-Client-Name": "OrcaSlicer",
+    "X-BBL-Client-Type": "slicer",
+    "X-BBL-Client-Version": "01.09.05.51",
+    "X-BBL-Language": "en-US",
+    "X-BBL-OS-Type": "linux",
+    "X-BBL-OS-Version": "6.2.0",
+    "X-BBL-Agent-Version": "01.09.05.01",
+    "X-BBL-Executable-info": "{}",
+    "X-BBL-Agent-OS-Type": "linux",
+    "Accept": "application/json",
+}
 
 # our field -> field of the cloud
 _FIELD = {
@@ -122,7 +136,8 @@ class Bambu:
         self.region = region if region in API else "global"
         status, text, _ = await self.http.request(
             "POST", f"{API[self.region]}/v1/user-service/user/login",
-            json_body={"account": email, "password": password, "apiError": ""})
+            json_body={"account": email, "password": password, "apiError": ""},
+            headers=HEADERS)
         data = _json(text)
         if status >= 400:
             raise BambuError(_message(data, text, "Anmeldung fehlgeschlagen"))
@@ -131,7 +146,9 @@ class Bambu:
             return "ok"
         kind = data.get("loginType")
         if kind == "verifyCode":
+            # the cloud only asks for a code – sending it has to be requested
             self._pending = {"email": email, "kind": "code"}
+            await self.resend_code()
             return "code"
         if kind == "tfa":
             self._pending = {"email": email, "kind": "tfa", "tfa_key": data.get("tfaKey", "")}
@@ -155,8 +172,14 @@ class Bambu:
         else:
             status, text, _ = await self.http.request(
                 "POST", f"{API[self.region]}/v1/user-service/user/login",
-                json_body={"account": email, "code": code})
-            token = _json(text).get("accessToken")
+                json_body={"account": email, "code": code}, headers=HEADERS)
+            data = _json(text)
+            token = data.get("accessToken")
+            if status == 400 and data.get("code") == 1:
+                await self.resend_code()
+                raise BambuError("Der Code ist abgelaufen – ein neuer Code wurde verschickt.")
+            if status == 400 and data.get("code") == 2:
+                raise BambuError("Der Code stimmt nicht.")
         if status >= 400 or not token:
             raise BambuError(_message(_json(text), text, "Code nicht angenommen"))
         self._signed_in(email, token)
@@ -165,8 +188,13 @@ class Bambu:
     async def resend_code(self) -> None:
         if not self._pending or self._pending["kind"] != "code":
             raise BambuError("Kein E-Mail-Code angefordert.")
-        await self.http.request("POST", f"{API[self.region]}/v1/user-service/user/sendemail/code",
-                                json_body={"email": self._pending["email"], "type": "codeLogin"})
+        status, text, _ = await self.http.request(
+            "POST", f"{API[self.region]}/v1/user-service/user/sendemail/code",
+            json_body={"email": self._pending["email"], "type": "codeLogin"}, headers=HEADERS)
+        if status >= 400:
+            _LOG.warning("Code anfordern: HTTP %s %s", status, text[:300])
+            raise BambuError(_message(_json(text), text, f"Code nicht verschickt (HTTP {status})"))
+        _LOG.info("Anmeldecode per E-Mail angefordert")
 
     def _signed_in(self, email: str, token: str) -> None:
         self.email = email
@@ -186,7 +214,7 @@ class Bambu:
             raise AuthRequired("Nicht bei der Bambu-Cloud angemeldet.")
         status, text, _ = await self.http.request(
             method, f"{API[self.region]}{path}", json_body=json_body, params=params,
-            headers={"Authorization": f"Bearer {self.token}"})
+            headers={**HEADERS, "Authorization": f"Bearer {self.token}"})
         if status == 401:
             raise AuthRequired("Die Anmeldung bei der Bambu-Cloud ist abgelaufen.")
         if status == 403 or (status >= 400 and "cloudflare" in text[:2000].lower()):

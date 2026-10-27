@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- Anmeldung mit E-Mail-Code: Der Code wird jetzt ausdrücklich bei Bambu Lab angefordert – bisher kam
+  keine E-Mail an.
+- Schlägt das Anfordern des Codes fehl, zeigt SpoolSync die Meldung von Bambu Lab an.
+- Abgelaufener Code: Es wird automatisch ein neuer verschickt.
+
 ## 0.1.0
 
 - Erste Version: Spulen zwischen Spoolman und der Filamentbibliothek der Bambu-Lab-Cloud in beide
