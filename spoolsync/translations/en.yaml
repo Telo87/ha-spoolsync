@@ -1,0 +1,31 @@
+configuration:
+  spoolman_url:
+    name: Spoolman address
+    description: Base URL of Spoolman, e.g. http://<Home Assistant address>:7912, without /api.
+  interval_minutes:
+    name: Sync every … minutes
+    description: How often both sides are compared when automatic sync is on.
+  auto_sync:
+    name: Sync automatically
+    description: >-
+      Off = SpoolSync only shows what it would change (dry run); changes are applied with the button
+      in the interface. Turn it on once the dry run looks right.
+  conflict_winner:
+    name: Priority on conflicts
+    description: >-
+      If the same value was changed on both sides since the last sync, this side wins. For the
+      remaining weight the lower value always wins.
+  sync_deletions:
+    name: Sync deletions
+    description: >-
+      A spool archived or deleted in Spoolman is removed from the Bambu cloud; a spool deleted in the
+      Bambu cloud is archived in Spoolman (never deleted).
+  book_bambu_prints:
+    name: Book prints of the Bambu Lab printers
+    description: >-
+      Reads the print jobs from the Bambu cloud and deducts the used grams from the spool assigned to
+      the AMS slot in Bambu Studio. Spools with RFID chip are reported by the AMS itself and are not
+      deducted again. Turn off if another tool already books the usage of these printers in Spoolman.
+  log_level:
+    name: Log level
+    description: Level of detail of the add-on logs.

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpoolSync</title>
+  <link rel="stylesheet" href="static/app.css">
+</head>
+<body>
+  <header class="top">
+    <h1>SpoolSync</h1>
+    <span class="sub">Spoolman ↔ Bambu-Cloud</span>
+    <span id="demo" class="pill warn" hidden>Demo</span>
+  </header>
+  <main>
+    <section class="grid">
+      <article class="card" id="card-spoolman">
+        <h2>Spoolman</h2>
+        <div id="sm-body" class="muted">Lade …</div>
+      </article>
+      <article class="card" id="card-bambu">
+        <h2>Bambu-Cloud</h2>
+        <div id="bb-body" class="muted">Lade …</div>
+        <form id="login" hidden>
+          <label>E-Mail des Bambu-Lab-Kontos<input name="email" type="email" autocomplete="username" required></label>
+          <label>Passwort<input name="password" type="password" autocomplete="current-password" required></label>
+          <label>Region
+            <select name="region"><option value="global">Weltweit</option><option value="china">China</option></select>
+          </label>
+          <button type="submit" class="primary">Anmelden</button>
+          <p class="hint">Das Passwort wird nicht gespeichert – nur die Anmeldung (gültig etwa 90 Tage).</p>
+        </form>
+        <form id="code" hidden>
+          <label><span id="code-label">Code</span><input name="code" inputmode="numeric" autocomplete="one-time-code" required></label>
+          <div class="row">
+            <button type="submit" class="primary">Bestätigen</button>
+            <button type="button" id="resend" class="ghost">Code erneut senden</button>
+          </div>
+        </form>
+      </article>
+      <article class="card" id="card-sync">
+        <h2>Abgleich</h2>
+        <div id="sync-body" class="muted">Lade …</div>
+        <div class="row">
+          <button id="btn-check" class="ghost">Neu prüfen</button>
+          <button id="btn-sync" class="primary" disabled>Jetzt abgleichen</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="card" id="card-plan">
+      <h2>Geplante Änderungen</h2>
+      <div id="warnings"></div>
+      <ul id="plan" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Spulen</h2>
+      <div class="table-wrap">
+        <table id="spools">
+          <thead><tr><th></th><th>Spoolman</th><th>Bambu-Cloud</th><th>Stand</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Verlauf</h2>
+      <ul id="log" class="list"></ul>
+    </section>
+  </main>
+  <div id="toast" class="toast" hidden></div>
+  <script src="static/app.js"></script>
+</body>
+</html>

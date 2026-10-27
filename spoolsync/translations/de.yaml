@@ -1,0 +1,34 @@
+configuration:
+  spoolman_url:
+    name: Adresse von Spoolman
+    description: >-
+      Basisadresse von Spoolman, z. B. http://<Adresse von Home Assistant>:7912 oder die interne
+      Adresse des Spoolman-Add-ons. Ohne /api am Ende.
+  interval_minutes:
+    name: Abgleich alle … Minuten
+    description: Wie oft beide Seiten abgeglichen werden, wenn der automatische Abgleich an ist.
+  auto_sync:
+    name: Automatisch abgleichen
+    description: >-
+      Aus = SpoolSync zeigt nur an, was es ändern würde (Probelauf); übernommen wird erst per Knopf
+      in der Oberfläche. Erst einschalten, wenn der Probelauf passt.
+  conflict_winner:
+    name: Vorrang bei Konflikten
+    description: >-
+      Wurde dieselbe Angabe seit dem letzten Abgleich auf beiden Seiten geändert, gewinnt diese Seite.
+      Beim Restgewicht gilt immer der kleinere Wert.
+  sync_deletions:
+    name: Löschen übernehmen
+    description: >-
+      Eine in Spoolman archivierte oder gelöschte Spule wird aus der Bambu-Cloud entfernt; eine in der
+      Bambu-Cloud gelöschte Spule wird in Spoolman archiviert (nie gelöscht).
+  book_bambu_prints:
+    name: Drucke der Bambu-Lab-Drucker abbuchen
+    description: >-
+      Liest die Druckaufträge aus der Bambu-Cloud und zieht die verbrauchten Gramm von der Spule ab,
+      die in Bambu Studio dem benutzten AMS-Slot zugeordnet ist. Spulen mit RFID-Chip meldet das AMS
+      selbst, sie werden nicht zusätzlich abgezogen. Ausschalten, wenn ein anderes Werkzeug den
+      Verbrauch dieser Drucker bereits in Spoolman bucht.
+  log_level:
+    name: Protokollierungsstufe
+    description: Detailgrad der Add-on-Protokolle.

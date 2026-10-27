@@ -1,0 +1,5 @@
+#!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
+bashio::log.info "Starte SpoolSync ..."
+cd /opt || exit 1
+exec python3 -m spoolsync
