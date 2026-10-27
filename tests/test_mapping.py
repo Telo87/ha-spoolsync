@@ -5,11 +5,12 @@ from spoolsync.model import Spool, type_name
 from spoolsync.spoolman import Spoolman, to_spool
 
 
-def test_colour_names_become_the_material():
-    assert type_name("Turquoise", "PLA") == "PLA"
+def test_colour_names_get_the_material_in_front():
+    assert type_name("Turquoise", "PLA+") == "PLA+ Turquoise"
     assert type_name("PLA Basic", "PLA") == "PLA Basic"
     assert type_name("Silk PLA+", "PLA+") == "Silk PLA+"
     assert type_name("Turquoise", "") == "Turquoise"
+    assert type_name("", "PETG") == "PETG"
 
 
 def test_spoolman_spool_as_the_apps_show_it():
@@ -18,7 +19,7 @@ def test_spoolman_spool_as_the_apps_show_it():
                                "color_hex": "38bac0", "weight": 1100,
                                "vendor": {"id": 2, "name": "JAYO"}}})
     assert (s.vendor, s.material, s.name, s.color, s.total_g, s.remaining_g) == (
-        "JAYO", "PLA", "PLA", "38BAC0", 1100, 1100)
+        "JAYO", "PLA", "PLA Turquoise", "38BAC0", 1100, 1100)
 
 
 class RecordingSpoolman(Spoolman):
@@ -53,11 +54,5 @@ async def test_other_brands_get_the_generic_profile(tmp_path):
     assert await bambu._filament_id(Spool(1, "Bambu Lab", "PLA", "PLA Basic")) == "GFA00"
     assert await bambu._filament_id(Spool(1, "JAYO", "PLA", "PLA")) == "GFL99"
     assert await bambu._filament_id(Spool(1, "JAYO", "PETG", "PETG")) == "GFG99"
+    assert await bambu._filament_id(Spool(1, "JAYO", "PLA+", "PLA+ Turquoise")) == "GFL99"
     assert await bambu._filament_id(Spool(1, "JAYO", "PEEK", "PEEK")) == ""
-
-
-def test_colour_name_of_the_spoolman_filament():
-    s = to_spool({"id": 3, "filament": {"id": 9, "name": "Turquoise", "material": "PLA+"}})
-    assert (s.name, s.label) == ("PLA+", "Turquoise")
-    s = to_spool({"id": 4, "filament": {"id": 9, "name": "PLA Basic", "material": "PLA"}})
-    assert s.label == ""

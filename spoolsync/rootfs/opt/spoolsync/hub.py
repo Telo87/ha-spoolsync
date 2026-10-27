@@ -211,16 +211,12 @@ class Hub:
             self._unlink(a.sm, a.bb)
         elif a.kind == "create_bambu":
             new_id = await self.bambu.create(a.spool)
-            self.links.append(Link(a.sm, new_id, {**a.spool.values(), "label": a.spool.label}))
+            self.links.append(Link(a.sm, new_id, a.spool.values()))
         elif a.kind == "create_spoolman":
             new_id = await self.spoolman.create(a.spool)
             self.links.append(Link(new_id, a.bb, a.spool.values()))
         elif a.kind == "update_bambu":
             await self.bambu.update(a.spool, a.changes)
-            if "label" in a.changes:
-                for link in self.links:
-                    if link.sm == a.sm and link.bb == a.bb:
-                        link.snapshot["label"] = a.changes["label"]
         elif a.kind in ("update_spoolman", "use_spoolman"):
             await self.spoolman.update(a.spool, a.changes)
         elif a.kind == "use_bambu":

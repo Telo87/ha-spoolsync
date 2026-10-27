@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4
+
+- Farbname im Namen: Ist der Filamentname in Spoolman ein Farbname (z. B. „Turquoise“), zeigen
+  Bambu Studio und Bambu Handy die Spule als „PLA+ Turquoise“. Bestehende Spulen werden beim
+  nächsten Abgleich angepasst.
+- Der Anzeigename aus 0.1.3 entfällt wieder – die Bambu-Apps zeigen ihn nicht an.
+- Filament wie „PLA+“ bekommt das Generic-Profil des Grundmaterials (Generic PLA).
+
 ## 0.1.3
 
 - Farbname für die Bambu-Cloud: Ist der Filamentname in Spoolman ein Farbname (z. B.

@@ -18,7 +18,6 @@ LABELS = {
     "total_g": "Gesamtgewicht",
     "remaining_g": "Restgewicht",
     "note": "Notiz",
-    "label": "Farbname",
 }
 
 
@@ -34,9 +33,6 @@ class Spool:
     note: str = ""
     archived: bool = False
     rfid: str = ""
-    # colour name ("Turquoise"): Spoolman's filament name when it is not the type; goes one way,
-    # Spoolman -> cloud (displayName)
-    label: str = ""
     extra: dict = field(default_factory=dict)  # side specific details (slot, filament id ...)
 
     def values(self) -> dict:
@@ -49,16 +45,17 @@ class Spool:
 
 
 def type_name(name: str, material: str) -> str:
-    """The filament type as the Bambu apps show it ("PLA Basic", "PETG HF").
+    """The spool name as the Bambu apps show it ("PLA Basic", "PLA+ Turquoise").
 
-    Spoolman names are often just a colour ("Turquoise"); then the material is the type.
+    Spoolman names are often just a colour ("Turquoise"): then the material goes in front, so the
+    apps show material and colour.
     """
     name, material = (name or "").strip(), (material or "").strip()
     if not material:
         return name
-    if name and material.casefold() in name.casefold():
-        return name
-    return material
+    if not name or material.casefold() in name.casefold():
+        return name or material
+    return f"{material} {name}"
 
 
 def norm_color(value: str | None) -> str:

@@ -1,5 +1,5 @@
 name: SpoolSync
-version: "0.1.3"
+version: "0.1.4"
 slug: spoolsync
 description: >-
   Gleicht die Filamentspulen zwischen Spoolman und der Bambu-Lab-Cloud (Bambu Studio,

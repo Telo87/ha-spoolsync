@@ -113,25 +113,3 @@ async def test_links_survive_a_restart(tmp_path):
     await hub.run()
     again = Hub(Options(), smc, bbc, tmp_path)
     assert [(link.sm, link.bb) for link in again.links] == [(1, 100)]
-
-
-async def test_colour_name_goes_to_the_cloud_once(tmp_path):
-    s = spool(1)
-    s.label = "Turquoise"
-    hub, smc, bbc = make(tmp_path, [s], [spool(100)])
-    await hub.run()
-    assert bbc.spools[100].label == "Turquoise"
-    bbc.spools[100].label = ""  # the cloud may not report it back
-    await hub.refresh()
-    assert hub.plan.writes == []
-    smc.spools[1].label = "Türkis"  # renamed in Spoolman
-    await hub.run()
-    assert bbc.spools[100].label == "Türkis"
-
-
-async def test_new_cloud_spool_gets_the_colour_name(tmp_path):
-    s = spool(1)
-    s.label = "Turquoise"
-    hub, _smc, bbc = make(tmp_path, [s], [])
-    await hub.run()
-    assert next(iter(bbc.spools.values())).label == "Turquoise"

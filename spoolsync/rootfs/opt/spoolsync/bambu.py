@@ -50,7 +50,6 @@ _FIELD = {
     "total_g": "totalNetWeight",
     "remaining_g": "netWeight",
     "note": "note",
-    "label": "displayName",
 }
 
 
@@ -260,7 +259,7 @@ class Bambu:
         material = (s.material or "").upper()
         if "SILK" in (s.name or "").upper() and material == "PLA":
             return GENERIC["PLA SILK"]
-        return GENERIC.get(material, "")
+        return GENERIC.get(material) or GENERIC.get(material.rstrip("+"), "")
 
     async def _write(self, method: str, body: dict) -> None:
         """Create / change a spool; a profile the cloud does not take is left out."""
@@ -288,8 +287,6 @@ class Bambu:
             "totalNetWeight": s.total_g or 1000,
             "filamentId": await self._filament_id(s),
         }
-        if s.label:
-            body["displayName"] = s.label
         await self._write("POST", body)
         # the answer is empty: the new spool is the newest one with this vendor and name
         new = [b for b in await self.list_spools() if b.id not in before
@@ -346,7 +343,6 @@ def to_spool(item: dict) -> Spool:
         note=item.get("note") or "",
         archived=status not in (None, 0, "0"),
         rfid=item.get("RFID") or "",
-        label=item.get("displayName") or "",
         extra={k: item.get(k) for k in ("filamentId", "createType", "deviceName", "inPrinter",
                                         "devId", "amsId", "slotId", "trayIdName")},
     )
