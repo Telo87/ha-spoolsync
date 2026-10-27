@@ -172,6 +172,10 @@ def _pair(sm_id: int, bb_id: int, s: Spool | None, b: Spool | None, snapshot: di
             to_bb[f] = value
         else:
             to_sm[f] = value
+    # the colour name only goes to the cloud – sent again when it changes in Spoolman
+    if (s.label and not same("label", s.label, b.label)
+            and not same("label", s.label, snapshot.get("label"))):
+        to_bb["label"] = s.label
 
     actions = []
     if to_bb:

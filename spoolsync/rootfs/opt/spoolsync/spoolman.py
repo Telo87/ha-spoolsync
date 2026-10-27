@@ -172,6 +172,8 @@ def to_spool(item: dict) -> Spool:
         if value:
             rfid = str(value).strip('"')
             break
+    fname = filament.get("name") or ""
+    name = type_name(fname, filament.get("material") or "")
     total = item.get("initial_weight")
     if total is None:
         total = filament.get("weight")
@@ -179,7 +181,7 @@ def to_spool(item: dict) -> Spool:
         id=int(item["id"]),
         vendor=vendor.get("name") or "",
         material=filament.get("material") or "",
-        name=type_name(filament.get("name") or "", filament.get("material") or ""),
+        name=name,
         color=norm_color(filament.get("color_hex")
                          or (filament.get("multi_color_hexes") or "").split(",")[0]),
         total_g=to_grams(total),
@@ -187,5 +189,6 @@ def to_spool(item: dict) -> Spool:
         note=item.get("comment") or "",
         archived=bool(item.get("archived")),
         rfid=rfid,
+        label=fname if fname.strip().casefold() != name.casefold() else "",
         extra={"filament": filament, "location": item.get("location") or ""},
     )

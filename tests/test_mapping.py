@@ -54,3 +54,10 @@ async def test_other_brands_get_the_generic_profile(tmp_path):
     assert await bambu._filament_id(Spool(1, "JAYO", "PLA", "PLA")) == "GFL99"
     assert await bambu._filament_id(Spool(1, "JAYO", "PETG", "PETG")) == "GFG99"
     assert await bambu._filament_id(Spool(1, "JAYO", "PEEK", "PEEK")) == ""
+
+
+def test_colour_name_of_the_spoolman_filament():
+    s = to_spool({"id": 3, "filament": {"id": 9, "name": "Turquoise", "material": "PLA+"}})
+    assert (s.name, s.label) == ("PLA+", "Turquoise")
+    s = to_spool({"id": 4, "filament": {"id": 9, "name": "PLA Basic", "material": "PLA"}})
+    assert s.label == ""

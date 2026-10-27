@@ -18,6 +18,7 @@ LABELS = {
     "total_g": "Gesamtgewicht",
     "remaining_g": "Restgewicht",
     "note": "Notiz",
+    "label": "Farbname",
 }
 
 
@@ -33,6 +34,9 @@ class Spool:
     note: str = ""
     archived: bool = False
     rfid: str = ""
+    # colour name ("Turquoise"): Spoolman's filament name when it is not the type; goes one way,
+    # Spoolman -> cloud (displayName)
+    label: str = ""
     extra: dict = field(default_factory=dict)  # side specific details (slot, filament id ...)
 
     def values(self) -> dict:

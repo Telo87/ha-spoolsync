@@ -2,7 +2,7 @@
 
 # SpoolSync – Home Assistant Add-on
 
-[![Version](https://img.shields.io/badge/version-0.1.2-blue)](spoolsync/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.1.3-blue)](spoolsync/CHANGELOG.md)
 
 Gleicht die Filamentspulen zwischen [Spoolman](https://github.com/Donkie/Spoolman) und der
 Filamentbibliothek der Bambu-Lab-Cloud (Bambu Studio, Bambu Handy) in beide Richtungen ab:

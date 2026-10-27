@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+- Farbname für die Bambu-Cloud: Ist der Filamentname in Spoolman ein Farbname (z. B.
+  „Turquoise“), wird er als Anzeigename der Spule in die Bambu-Cloud übertragen. Ändert er sich in
+  Spoolman, wird er neu übertragen. Die Richtung ist nur Spoolman → Bambu-Cloud.
+
 ## 0.1.2
 
 - Bambu Studio / Bambu Handy zeigen als Materialtyp das Material (z. B. „PLA“) statt eines
