@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2
+
+- Bambu Studio / Bambu Handy zeigen als Materialtyp das Material (z. B. „PLA“) statt eines
+  Farbnamens, wenn der Filamentname in Spoolman nur die Farbe ist. Bestehende Spulen werden beim
+  nächsten Abgleich angepasst; der Filamentname in Spoolman bleibt unverändert.
+- Filament anderer Hersteller wird mit dem passenden Generic-Profil verknüpft (z. B. „Generic
+  PLA“). Nimmt die Cloud das Profil nicht an, wird die Spule ohne Profil gespeichert.
+
 ## 0.1.1
 
 - Anmeldung mit E-Mail-Code: Der Code wird jetzt ausdrücklich bei Bambu Lab angefordert – bisher kam

@@ -44,6 +44,19 @@ class Spool:
         return f"{text} #{self.color}" if self.color else text
 
 
+def type_name(name: str, material: str) -> str:
+    """The filament type as the Bambu apps show it ("PLA Basic", "PETG HF").
+
+    Spoolman names are often just a colour ("Turquoise"); then the material is the type.
+    """
+    name, material = (name or "").strip(), (material or "").strip()
+    if not material:
+        return name
+    if name and material.casefold() in name.casefold():
+        return name
+    return material
+
+
 def norm_color(value: str | None) -> str:
     """'#ffffffff', 'FFFFFF', None -> 'FFFFFF' / ''."""
     if not value:

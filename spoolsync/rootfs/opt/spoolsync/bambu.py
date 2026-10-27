@@ -35,6 +35,13 @@ HEADERS = {
     "Accept": "application/json",
 }
 
+# Slicer profiles for filament of other brands, by material ("Generic PLA" ...)
+GENERIC = {
+    "PLA": "GFL99", "PLA-CF": "GFL98", "PLA SILK": "GFL96", "PETG": "GFG99", "PET": "GFG99",
+    "ABS": "GFB99", "ASA": "GFB98", "TPU": "GFU99", "PA": "GFN99", "PC": "GFC99", "PVA": "GFS99",
+    "HIPS": "GFS98",
+}
+
 # our field -> field of the cloud
 _FIELD = {
     "vendor": "filamentVendor",
@@ -236,7 +243,8 @@ class Bambu:
         return result
 
     async def _filament_id(self, s: Spool) -> str:
-        """Catalogue id of an official filament ("GFA00"); '' for everything else."""
+        """Slicer profile of the spool: the official filament ("GFA00"), else the generic profile
+        of the material ("Generic PLA"), else ''."""
         if self._catalog is None:
             try:
                 self._catalog = _catalog_items(
@@ -248,7 +256,22 @@ class Bambu:
             if ((item.get("vendor") or "").casefold() == s.vendor.casefold()
                     and (item.get("name") or "").casefold() == s.name.casefold()):
                 return item.get("filament_id") or ""
-        return ""
+        material = (s.material or "").upper()
+        if "SILK" in (s.name or "").upper() and material == "PLA":
+            return GENERIC["PLA SILK"]
+        return GENERIC.get(material, "")
+
+    async def _write(self, method: str, body: dict) -> None:
+        """Create / change a spool; a profile the cloud does not take is left out."""
+        try:
+            await self._api(method, FILAMENT, json_body=body)
+        except AuthRequired:
+            raise
+        except BambuError as err:
+            if not body.get("filamentId") or "HTTP 400" not in str(err):
+                raise
+            _LOG.info("Profil %s nicht angenommen, Spule ohne Profil: %s", body["filamentId"], err)
+            await self._api(method, FILAMENT, json_body={**body, "filamentId": ""})
 
     async def create(self, s: Spool) -> int:
         before = {b.id for b in await self.list_spools()}
@@ -264,7 +287,7 @@ class Bambu:
             "totalNetWeight": s.total_g or 1000,
             "filamentId": await self._filament_id(s),
         }
-        await self._api("POST", FILAMENT, json_body=body)
+        await self._write("POST", body)
         # the answer is empty: the new spool is the newest one with this vendor and name
         new = [b for b in await self.list_spools() if b.id not in before
                and b.vendor.casefold() == body["filamentVendor"].casefold()
@@ -287,11 +310,12 @@ class Bambu:
                 body["colors"] = [f"#{value}"]  # the apps show "colors" over "color"
             elif f in _FIELD:
                 body[_FIELD[f]] = value
-        if "vendor" in changes or "name" in changes:
+        if any(f in changes for f in ("vendor", "name", "material")):
             target = Spool(current.id, vendor=changes.get("vendor", current.vendor),
-                           name=changes.get("name", current.name))
+                           name=changes.get("name", current.name),
+                           material=changes.get("material", current.material))
             body["filamentId"] = await self._filament_id(target)
-        await self._api("PUT", FILAMENT, json_body=body)
+        await self._write("PUT", body)
 
     async def delete(self, spool_id: int) -> None:
         await self._api("DELETE", f"{FILAMENT}/batch", json_body={"ids": [spool_id]})

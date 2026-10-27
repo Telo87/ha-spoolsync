@@ -6,7 +6,7 @@ import logging
 
 import aiohttp
 
-from .model import Spool, norm_color, to_grams
+from .model import Spool, norm_color, to_grams, type_name
 
 _LOG = logging.getLogger(__name__)
 
@@ -142,6 +142,8 @@ class Spoolman:
             target = Spool(current.id, **{
                 f: changes.get(f, getattr(current, f))
                 for f in ("vendor", "material", "name", "color", "total_g")})
+            if "name" not in changes:  # keep the spool's own filament name ("Turquoise")
+                target.name = (current.extra.get("filament") or {}).get("name") or target.name
             fid = await self.filament_id(target, like=current.extra.get("filament"))
             await self._req("PATCH", f"/spool/{current.id}", json={"filament_id": fid})
         # the initial weight first: Spoolman derives the used weight from it and the remainder
@@ -177,7 +179,7 @@ def to_spool(item: dict) -> Spool:
         id=int(item["id"]),
         vendor=vendor.get("name") or "",
         material=filament.get("material") or "",
-        name=filament.get("name") or "",
+        name=type_name(filament.get("name") or "", filament.get("material") or ""),
         color=norm_color(filament.get("color_hex")
                          or (filament.get("multi_color_hexes") or "").split(",")[0]),
         total_g=to_grams(total),
