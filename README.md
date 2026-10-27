@@ -1,3 +1,5 @@
+<img src="spoolsync/logo.png" alt="SpoolSync" width="250">
+
 # SpoolSync – Home Assistant Add-on
 
 [![Version](https://img.shields.io/badge/version-0.1.2-blue)](spoolsync/CHANGELOG.md)
