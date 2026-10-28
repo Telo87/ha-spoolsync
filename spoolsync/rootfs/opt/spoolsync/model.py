@@ -18,6 +18,7 @@ LABELS = {
     "total_g": "Gesamtgewicht",
     "remaining_g": "Restgewicht",
     "note": "Notiz",
+    "location": "Ort",
 }
 
 
@@ -33,6 +34,8 @@ class Spool:
     note: str = ""
     archived: bool = False
     rfid: str = ""
+    # Spoolman: the spool's location; cloud: the printer slot it sits in ("" = not in a printer)
+    location: str = ""
     extra: dict = field(default_factory=dict)  # side specific details (slot, filament id ...)
 
     def values(self) -> dict:

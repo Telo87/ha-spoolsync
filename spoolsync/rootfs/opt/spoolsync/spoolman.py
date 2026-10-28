@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 import aiohttp
@@ -27,6 +28,10 @@ def density_for(material: str) -> float:
     return 1.24
 
 
+# extra field of the spools that keeps the id of the linked spool in the cloud
+ID_FIELD = "bambu_id"
+
+
 class SpoolmanError(Exception):
     pass
 
@@ -37,6 +42,7 @@ class Spoolman:
         self._session = session
         self._filaments: list[dict] | None = None
         self._vendors: list[dict] | None = None
+        self._field_ready = False
 
     async def _req(self, method: str, path: str, **kwargs):
         if self._session is None:
@@ -132,6 +138,8 @@ class Spoolman:
             body["remaining_weight"] = s.remaining_g
         if s.note:
             body["comment"] = s.note
+        if s.location:
+            body["location"] = s.location
         created = await self._req("POST", "/spool", json=body)
         return int(created["id"])
 
@@ -155,11 +163,27 @@ class Spoolman:
             body["remaining_weight"] = max(changes["remaining_g"], 0)
         if "note" in changes:
             body["comment"] = changes["note"] or ""
+        if "location" in changes:
+            body["location"] = changes["location"] or None
         if body:
             await self._req("PATCH", f"/spool/{current.id}", json=body)
 
     async def archive(self, spool_id: int) -> None:
         await self._req("PATCH", f"/spool/{spool_id}", json={"archived": True})
+
+    async def set_bambu_id(self, s: Spool, bb_id: int) -> None:
+        """Keeps the linked cloud spool in an extra field – the links survive a reinstall."""
+        if not self._field_ready:
+            fields = await self._req("GET", "/field/spool") or []
+            if not any(f.get("key") == ID_FIELD for f in fields):
+                await self._req("POST", f"/field/spool/{ID_FIELD}",
+                                json={"name": "Bambu-Cloud-ID", "field_type": "text"})
+                _LOG.info("Spoolman: Zusatzfeld %s angelegt", ID_FIELD)
+            self._field_ready = True
+        # Spoolman replaces all extra fields of the spool: the others are sent along unchanged
+        extra = dict(s.extra.get("spool_extra") or {})
+        extra[ID_FIELD] = json.dumps(str(bb_id))
+        await self._req("PATCH", f"/spool/{s.id}", json={"extra": extra})
 
 
 def to_spool(item: dict) -> Spool:
@@ -172,6 +196,10 @@ def to_spool(item: dict) -> Spool:
         if value:
             rfid = str(value).strip('"')
             break
+    try:
+        bambu_id = str(json.loads(extra.get(ID_FIELD) or '""'))
+    except ValueError:
+        bambu_id = ""
     total = item.get("initial_weight")
     if total is None:
         total = filament.get("weight")
@@ -187,5 +215,6 @@ def to_spool(item: dict) -> Spool:
         note=item.get("comment") or "",
         archived=bool(item.get("archived")),
         rfid=rfid,
-        extra={"filament": filament, "location": item.get("location") or ""},
+        location=item.get("location") or "",
+        extra={"filament": filament, "spool_extra": extra, "bambu_id": bambu_id},
     )

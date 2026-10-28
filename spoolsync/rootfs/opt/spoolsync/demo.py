@@ -33,6 +33,10 @@ class FakeSpoolman:
         self.calls.append(("archive", spool_id))
         self.spools[spool_id].archived = True
 
+    async def set_bambu_id(self, s: Spool, bb_id: int) -> None:
+        self.calls.append(("bambu_id", s.id, bb_id))
+        self.spools[s.id].extra = {**self.spools[s.id].extra, "bambu_id": str(bb_id)}
+
     async def close(self) -> None:
         pass
 
@@ -88,7 +92,7 @@ def demo_sides() -> tuple[FakeSpoolman, FakeBambu]:
     ])
     bb = FakeBambu([
         Spool(7000001, "Bambu Lab", "PLA", "PLA Basic", "FFFFFF", 1000, 790,
-              extra={"inPrinter": True, "deviceName": "Drucker"}),
+              location="Drucker – AMS 1 Slot 1"),
         Spool(7000002, "Bambu Lab", "PETG", "PETG HF", "000000", 1000, 450),
         Spool(7000003, "Bambu Lab", "ABS", "ABS", "0A2989", 1000, 655),
     ])

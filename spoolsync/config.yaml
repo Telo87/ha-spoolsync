@@ -1,5 +1,5 @@
 name: SpoolSync
-version: "0.1.4"
+version: "0.2.0"
 slug: spoolsync
 description: >-
   Gleicht die Filamentspulen zwischen Spoolman und der Bambu-Lab-Cloud (Bambu Studio,
@@ -12,6 +12,8 @@ init: false
 ingress: true
 panel_icon: mdi:printer-3d-nozzle
 panel_title: SpoolSync
+# notifications in Home Assistant, its language for the colour names
+homeassistant_api: true
 options:
   spoolman_url: "http://homeassistant.local:7912"
   interval_minutes: 5
@@ -19,6 +21,7 @@ options:
   conflict_winner: spoolman
   sync_deletions: true
   book_bambu_prints: true
+  notifications: true
   log_level: info
 schema:
   spoolman_url: url
@@ -27,4 +30,5 @@ schema:
   conflict_winner: list(spoolman|bambu)
   sync_deletions: bool
   book_bambu_prints: bool
+  notifications: bool
   log_level: list(debug|info|warning|error)

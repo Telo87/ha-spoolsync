@@ -26,6 +26,11 @@ configuration:
       Reads the print jobs from the Bambu cloud and deducts the used grams from the spool assigned to
       the AMS slot in Bambu Studio. Spools with RFID chip are reported by the AMS itself and are not
       deducted again. Turn off if another tool already books the usage of these printers in Spoolman.
+  notifications:
+    name: Notifications in Home Assistant
+    description: >-
+      Tells in Home Assistant when the sign-in at the Bambu cloud runs out soon or is missing, a side
+      cannot be reached for a while, or changes could not be applied.
   log_level:
     name: Log level
     description: Level of detail of the add-on logs.

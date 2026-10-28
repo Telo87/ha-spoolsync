@@ -28,6 +28,33 @@ dieselben Spulen mit demselben Restgewicht.
 - **Erster Abgleich:** Spulen, die es auf beiden Seiten schon gibt, werden anhand von Material,
   Farbe, Hersteller, Bezeichnung und Gewicht einander zugeordnet statt doppelt angelegt.
 
+## Ort, Zuordnung und Farbnamen
+
+- **Ort:** Ist eine Spule in Bambu Studio / Bambu Handy einem AMS-Slot zugeordnet, trägt SpoolSync
+  das als Ort in Spoolman ein, z. B. „<Druckername> – AMS 1 Slot 2“. Wird sie herausgenommen, leert
+  SpoolSync den Ort wieder – aber nur, wenn es ihn selbst gesetzt hat. Ein von Hand eingetragener
+  Ort wird nur ersetzt, solange die Spule im Drucker steckt.
+- **Zuordnung:** Welche Spoolman-Spule zu welcher Spule der Bambu-Cloud gehört, steht zusätzlich
+  im Zusatzfeld „Bambu-Cloud-ID“ der Spule in Spoolman (legt SpoolSync selbst an). Nach einer
+  Neuinstallation findet SpoolSync die Paare darüber wieder, statt Spulen doppelt anzulegen.
+- **Von Hand korrigieren:** In der Spulenliste trennt „Trennen“ zwei falsch zugeordnete Spulen
+  dauerhaft; eine Spule, die nur auf einer Seite steht, lässt sich mit „Verknüpfen“ von Hand der
+  richtigen zuordnen.
+- **Farbnamen:** Ist der Filamentname in Spoolman ein Farbname („Turquoise“), zeigen die
+  Bambu-Apps die Spule als „PLA+ Turquoise“. Umgekehrt bekommt eine in der Bambu-Cloud angelegte
+  Spule mit offiziellem Bambu-Filament in Spoolman den Farbnamen von Bambu Lab („ABS Azurblau“).
+
+## Benachrichtigungen
+
+SpoolSync meldet sich in Home Assistant (Benachrichtigungen), wenn
+
+- die Anmeldung bei der Bambu-Cloud fehlt oder in weniger als 7 Tagen abläuft,
+- Spoolman oder die Bambu-Cloud mehrmals hintereinander nicht erreichbar ist,
+- Änderungen beim Abgleich nicht übernommen werden konnten.
+
+Ist das Problem behoben, verschwindet die Benachrichtigung von selbst. Abschaltbar mit
+„Benachrichtigungen in Home Assistant“ in der Konfiguration.
+
 ## Verbrauch beim Drucken
 
 - **Andere Drucker (z. B. über OctoPrint, Klipper):** Bucht deren Spoolman-Anbindung den Verbrauch
@@ -62,4 +89,5 @@ dieselben Spulen mit demselben Restgewicht.
 - Spoolman ordnet Farbe, Material und Hersteller dem Filament zu, nicht der einzelnen Spule. Ändert
   sich eine dieser Angaben in der Bambu-Cloud, bekommt die Spule in Spoolman das passende Filament
   (wird bei Bedarf angelegt) – andere Spulen desselben Filaments bleiben unverändert.
-- SpoolSync merkt sich die Zuordnung der Spulen in `/data/links.json` des Add-ons.
+- SpoolSync merkt sich die Zuordnung der Spulen in `/data/links.json` des Add-ons und im
+  Zusatzfeld „Bambu-Cloud-ID“ in Spoolman.

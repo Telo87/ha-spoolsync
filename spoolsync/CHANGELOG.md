@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0
+
+- Ort in Spoolman: Steckt eine Spule laut Bambu Studio / Bambu Handy in einem AMS-Slot, wird das
+  als Ort in Spoolman eingetragen (z. B. „<Druckername> – AMS 1 Slot 2“). Kommt sie heraus, wird der Ort
+  wieder geleert – ein von Hand eingetragener Ort bleibt.
+- Benachrichtigungen in Home Assistant: wenn die Anmeldung bei der Bambu-Cloud fehlt oder in
+  weniger als 7 Tagen abläuft, eine Seite mehrmals hintereinander nicht erreichbar ist oder
+  Änderungen nicht übernommen werden konnten. Abschaltbar in der Konfiguration. Die Oberfläche
+  zeigt, bis wann die Anmeldung gilt.
+- Die Verknüpfung der Spulen steht zusätzlich im Zusatzfeld „Bambu-Cloud-ID“ in Spoolman. Nach
+  einer Neuinstallation findet SpoolSync die Paare darüber wieder.
+- Spulen von Hand trennen oder verknüpfen: in der Spulenliste. Getrennte Paare werden nicht wieder
+  automatisch zusammengeführt.
+- Neue Spulen aus der Bambu-Cloud bekommen in Spoolman den Farbnamen von Bambu Lab, z. B.
+  „ABS Azurblau“ (Sprache von Home Assistant). Die Farbtabelle wird einmal pro Woche geladen.
+- Spulen mit offiziellem Bambu-Profil behalten es, wenn sich nur der Name ändert.
+
 ## 0.1.4
 
 - Farbname im Namen: Ist der Filamentname in Spoolman ein Farbname (z. B. „Turquoise“), zeigen

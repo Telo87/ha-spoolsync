@@ -77,6 +77,26 @@ def create_app(hub: Hub) -> web.Application:
             await hub.refresh()
         return web.json_response(hub.state())
 
+    async def link(request):
+        return await _pair(request, hub.link)
+
+    async def unlink(request):
+        return await _pair(request, hub.unlink)
+
+    async def _pair(request, change):
+        body = await request.json()
+        try:
+            sm_id, bb_id = int(body.get("sm")), int(body.get("bb"))
+        except (TypeError, ValueError):
+            return _error("Spulen fehlen.")
+        async with hub.lock:
+            try:
+                await change(sm_id, bb_id)
+            except ValueError as err:
+                return _error(str(err))
+            await hub.refresh()
+        return web.json_response(hub.state())
+
     async def _after_login(status: str):
         if status == "ok":
             async with hub.lock:
@@ -92,6 +112,8 @@ def create_app(hub: Hub) -> web.Application:
     app.router.add_post("/api/code", code)
     app.router.add_post("/api/resend", resend)
     app.router.add_post("/api/logout", logout)
+    app.router.add_post("/api/link", link)
+    app.router.add_post("/api/unlink", unlink)
     app.router.add_static("/static/", STATIC)
     return app
 

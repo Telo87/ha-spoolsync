@@ -7,6 +7,7 @@ browser fingerprint when it is installed.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import time
@@ -130,6 +131,16 @@ class Bambu:
     def signed_in(self) -> bool:
         return bool(self.token)
 
+    @property
+    def expires_at(self) -> float | None:
+        """End of the sign-in (from the token), None when unknown."""
+        try:
+            payload = self.token.split(".")[1]
+            data = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+            return float(data["exp"])
+        except (IndexError, ValueError, KeyError, TypeError):
+            return None
+
     def sign_out(self) -> None:
         self.token = ""
         self._pending = {}
@@ -252,10 +263,16 @@ class Bambu:
             except BambuError as err:
                 _LOG.warning("Filamentkatalog nicht lesbar: %s", err)
                 self._catalog = []
+        # the official name, also when a colour follows it ("PLA Basic Jade White")
+        best, found = "", ""
+        name = s.name.casefold()
         for item in self._catalog:
-            if ((item.get("vendor") or "").casefold() == s.vendor.casefold()
-                    and (item.get("name") or "").casefold() == s.name.casefold()):
-                return item.get("filament_id") or ""
+            cat = (item.get("name") or "").casefold()
+            if ((item.get("vendor") or "").casefold() == s.vendor.casefold() and cat
+                    and (name == cat or name.startswith(cat + " ")) and len(cat) > len(best)):
+                best, found = cat, item.get("filament_id") or ""
+        if best:
+            return found
         material = (s.material or "").upper()
         if "SILK" in (s.name or "").upper() and material == "PLA":
             return GENERIC["PLA SILK"]
@@ -310,7 +327,9 @@ class Bambu:
                 body["colors"] = [f"#{value}"]  # the apps show "colors" over "color"
             elif f in _FIELD:
                 body[_FIELD[f]] = value
-        if any(f in changes for f in ("vendor", "name", "material")):
+        # a spool that has a profile keeps it when only the name changes (e.g. a colour added)
+        if (any(f in changes for f in ("vendor", "material"))
+                or ("name" in changes and not current.extra.get("filamentId"))):
             target = Spool(current.id, vendor=changes.get("vendor", current.vendor),
                            name=changes.get("name", current.name),
                            material=changes.get("material", current.material))
@@ -343,9 +362,26 @@ def to_spool(item: dict) -> Spool:
         note=item.get("note") or "",
         archived=status not in (None, 0, "0"),
         rfid=item.get("RFID") or "",
+        location=slot_text(item),
         extra={k: item.get(k) for k in ("filamentId", "createType", "deviceName", "inPrinter",
                                         "devId", "amsId", "slotId", "trayIdName")},
     )
+
+
+def slot_text(item: dict) -> str:
+    """Where the spool sits: "Drucker – AMS 1 Slot 2"; '' when it is not in a printer."""
+    if not item.get("inPrinter"):
+        return ""
+    printer = item.get("deviceName") or "Drucker"
+    try:
+        ams, slot = int(item.get("amsId")), int(item.get("slotId"))
+    except (TypeError, ValueError):
+        return printer
+    if 128 <= ams < 136:
+        return f"{printer} – AMS HT {ams - 127}"
+    if 0 <= ams < 8:
+        return f"{printer} – AMS {ams + 1} Slot {slot + 1}"
+    return f"{printer} – externe Spule"
 
 
 def _catalog_items(data) -> list[dict]:

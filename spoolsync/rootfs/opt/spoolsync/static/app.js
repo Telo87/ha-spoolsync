@@ -49,8 +49,12 @@ function renderBambu(s) {
   const b = s.bambu;
   const err = b.error && b.signed_in ? `<div class="err-box">${esc(b.error)}</div>` : "";
   if (b.signed_in) {
+    const until = b.expires_at
+      ? new Date(b.expires_at * 1000).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+      : "";
     $("#bb-body").innerHTML = `${err}<dl class="kv">
       <dt>Konto</dt><dd>${esc(b.email)} <span class="pill ok">angemeldet</span></dd>
+      ${until ? `<dt>Gültig bis</dt><dd>${until}</dd>` : ""}
       <dt>Spulen</dt><dd>${b.error ? "–" : b.count + " aktiv"}</dd></dl>
       <button class="link" id="logout">Abmelden</button>`;
     $("#logout").onclick = () => act(() => api("api/logout", {}), "Abgemeldet");
@@ -100,7 +104,7 @@ function renderPlan(s) {
 function side(x) {
   if (!x) return `<span class="muted">fehlt</span>`;
   const pct = x.total_raw ? Math.max(0, Math.min(100, Math.round(100 * x.remaining_raw / x.total_raw))) : null;
-  const extra = [x.material, x.slot ? `im Drucker (${x.slot})` : "", x.location, x.archived ? "archiviert" : ""]
+  const extra = [x.material, x.location, x.archived ? "archiviert" : ""]
     .filter(Boolean).map(esc).join(" · ");
   return `<div class="side"><div class="t">${esc(x.vendor !== "–" ? x.vendor + " " : "")}${esc(x.name !== "–" ? x.name : x.material)}</div>
     <div class="w">${esc(x.remaining_g)} von ${esc(x.total_g)}${pct !== null ? ` (${pct} %)` : ""}${extra ? " · " + extra : ""}</div>
@@ -115,16 +119,49 @@ function rowState(r) {
   return diff.length ? `<span class="pill info">weicht ab</span>` : `<span class="pill ok">gleich</span>`;
 }
 
+function pick(own, others, key) {
+  if (!others.length) return "";
+  const opts = others.map((o) => `<option value="${o.id}">${esc(o.title)} · ${esc(o.remaining_g)}</option>`).join("");
+  return `<div class="pick"><select aria-label="Spule zum Verknüpfen">${opts}</select>
+    <button class="ghost" data-link="${key}" data-own="${own.id}">Verknüpfen</button></div>`;
+}
+
+function actions(r, smOnly, bbOnly) {
+  if (r.sm && r.bb) return `<button class="ghost" data-unlink="${r.sm.id},${r.bb.id}">Trennen</button>`;
+  if (r.sm) return pick(r.sm, bbOnly, "sm");
+  return pick(r.bb, smOnly, "bb");
+}
+
 function renderSpools(s) {
   const rows = s.rows;
+  const smOnly = rows.filter((r) => r.sm && !r.bb).map((r) => r.sm);
+  const bbOnly = rows.filter((r) => r.bb && !r.sm).map((r) => r.bb);
   $("#spools tbody").innerHTML = rows.length ? rows.map((r) => {
     const color = (r.sm && r.sm.color) || (r.bb && r.bb.color);
     return `<tr><td class="sw">${color ? `<span class="swatch" style="background:#${esc(color)}"></span>` : ""}</td>
       <td data-label="Spoolman">${side(r.sm)}</td>
       <td data-label="Bambu-Cloud">${side(r.bb)}</td>
-      <td>${rowState(r)}</td></tr>`;
-  }).join("") : `<tr><td colspan="4" class="muted">Noch keine Spulen gelesen.</td></tr>`;
+      <td>${rowState(r)}</td>
+      <td class="act">${actions(r, smOnly, bbOnly)}</td></tr>`;
+  }).join("") : `<tr><td colspan="5" class="muted">Noch keine Spulen gelesen.</td></tr>`;
 }
+
+$("#spools tbody").addEventListener("click", (ev) => {
+  const unlink = ev.target.closest("[data-unlink]");
+  if (unlink) {
+    const [sm, bb] = unlink.dataset.unlink.split(",").map(Number);
+    if (!confirm("Diese beiden Spulen trennen? Sie werden danach nicht wieder automatisch verknüpft.")) return;
+    act(() => api("api/unlink", { sm, bb }), "Getrennt");
+    return;
+  }
+  const link = ev.target.closest("[data-link]");
+  if (link) {
+    const own = Number(link.dataset.own);
+    const other = Number(link.parentElement.querySelector("select").value);
+    const body = link.dataset.link === "sm" ? { sm: own, bb: other } : { sm: other, bb: own };
+    act(() => api("api/link", body), "Verknüpft");
+  }
+});
 
 function renderLog(s) {
   $("#log").innerHTML = s.log.length

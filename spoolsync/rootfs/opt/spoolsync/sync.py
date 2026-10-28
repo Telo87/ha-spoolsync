@@ -74,7 +74,8 @@ class Plan:
 
 
 def plan(sm_spools: list[Spool], bb_spools: list[Spool], links: list[Link],
-         opts: Options) -> Plan:
+         opts: Options, never: set[tuple[int, int]] | None = None) -> Plan:
+    """``never``: pairs the user separated by hand – they are not matched again."""
     sm_by = {s.id: s for s in sm_spools}
     bb_by = {b.id: b for b in bb_spools}
     actions: list[Action] = []
@@ -96,7 +97,7 @@ def plan(sm_spools: list[Spool], bb_spools: list[Spool], links: list[Link],
     free_sm = [s for s in sm_spools if s.id not in linked_sm and not s.archived]
     free_bb = [b for b in bb_spools if b.id not in linked_bb and not b.archived]
 
-    for s, b in match(free_sm, free_bb):
+    for s, b in match(free_sm, free_bb, never or set()):
         actions.append(Action("link", s.id, b.id, text=f"Verknüpfen: {s.title()} "
                               f"(Spoolman #{s.id} ↔ Bambu #{b.id})"))
         pairs.append((s.id, b.id, {}))
@@ -172,6 +173,13 @@ def _pair(sm_id: int, bb_id: int, s: Spool | None, b: Spool | None, snapshot: di
             to_bb[f] = value
         else:
             to_sm[f] = value
+    # The printer slot goes to Spoolman as the location (one way). Out of the printer, only a
+    # location SpoolSync set itself is cleared – one set by hand stays.
+    if b.location and not same("location", s.location, b.location):
+        to_sm["location"] = b.location
+    elif (not b.location and s.location
+          and same("location", s.location, snapshot.get("location"))):
+        to_sm["location"] = ""
 
     actions = []
     if to_bb:
@@ -195,7 +203,8 @@ def agreed(s: Spool, b: Spool, snapshot: dict) -> dict:
     return result
 
 
-def match(free_sm: list[Spool], free_bb: list[Spool]) -> list[tuple[Spool, Spool]]:
+def match(free_sm: list[Spool], free_bb: list[Spool],
+          never: set[tuple[int, int]] | None = None) -> list[tuple[Spool, Spool]]:
     """Pairs of not yet linked spools that are most likely the same physical spool.
 
     Required: same material and colour, and the same vendor where both know it. The rest (RFID,
@@ -204,6 +213,8 @@ def match(free_sm: list[Spool], free_bb: list[Spool]) -> list[tuple[Spool, Spool
     candidates = []
     for s in free_sm:
         for b in free_bb:
+            if never and (s.id, b.id) in never:
+                continue
             score = _score(s, b)
             if score is not None:
                 candidates.append((score, s.id, b.id, s, b))

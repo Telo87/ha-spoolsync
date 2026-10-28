@@ -29,6 +29,11 @@ configuration:
       die in Bambu Studio dem benutzten AMS-Slot zugeordnet ist. Spulen mit RFID-Chip meldet das AMS
       selbst, sie werden nicht zusätzlich abgezogen. Ausschalten, wenn ein anderes Werkzeug den
       Verbrauch dieser Drucker bereits in Spoolman bucht.
+  notifications:
+    name: Benachrichtigungen in Home Assistant
+    description: >-
+      Meldet in Home Assistant, wenn die Anmeldung bei der Bambu-Cloud bald abläuft oder fehlt, eine
+      Seite länger nicht erreichbar ist oder Änderungen nicht übernommen werden konnten.
   log_level:
     name: Protokollierungsstufe
     description: Detailgrad der Add-on-Protokolle.

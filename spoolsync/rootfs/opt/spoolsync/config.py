@@ -18,6 +18,7 @@ class Options:
     conflict_winner: str = "spoolman"
     sync_deletions: bool = True
     book_bambu_prints: bool = True
+    notifications: bool = True
     log_level: str = "info"
     port: int = 8099
     demo: bool = False

@@ -13,19 +13,29 @@ from pathlib import Path
 from . import sync, usage
 from .bambu import AuthRequired
 from .config import Options
+from .ha import HomeAssistant
 from .model import FIELDS, show
 from .sync import Link
+
+# tell about a side that cannot be read only after this many checks in a row
+FAILS_BEFORE_NOTICE = 3
+# warn this long before the sign-in at the cloud runs out
+EXPIRY_WARNING_S = 7 * 24 * 3600
 
 _LOG = logging.getLogger(__name__)
 
 
 class Hub:
-    def __init__(self, opts: Options, spoolman, bambu, data_dir: Path):
+    def __init__(self, opts: Options, spoolman, bambu, data_dir: Path, ha=None, colors=None):
         self.opts = opts
         self.spoolman = spoolman
         self.bambu = bambu
+        self.ha = ha or HomeAssistant(enabled=False)
+        self.colors = colors  # Bambu Lab's colour names, None = not used
         self.links_file = data_dir / "links.json"
+        self.never: set[tuple[int, int]] = set()  # pairs separated by hand
         self.links: list[Link] = self._load_links()
+        self.fails = {"spoolman": 0, "bambu": 0}
         self.usage_file = data_dir / "usage.json"
         self.usage = self._load_usage()
         self.usage_done: list[int] = []  # print jobs dealt with once the current plan is carried out
@@ -45,6 +55,7 @@ class Hub:
     def _load_links(self) -> list[Link]:
         try:
             data = json.loads(self.links_file.read_text(encoding="utf-8"))
+            self.never = {(int(sm), int(bb)) for sm, bb in data.get("never", [])}
             return [Link.from_json(item) for item in data.get("links", [])]
         except (OSError, ValueError, KeyError, TypeError):
             return []
@@ -52,13 +63,64 @@ class Hub:
     def _save_links(self) -> None:
         self.links_file.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.links_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"links": [link.to_json() for link in self.links]}, indent=1,
-                                  ensure_ascii=False), encoding="utf-8")
+        tmp.write_text(json.dumps({"links": [link.to_json() for link in self.links],
+                                   "never": sorted(self.never)}, indent=1, ensure_ascii=False),
+                       encoding="utf-8")
         tmp.replace(self.links_file)
 
     def _unlink(self, sm_id, bb_id) -> None:
         self.links = [link for link in self.links if not (link.sm == sm_id and link.bb == bb_id)]
 
+    def _link_of(self, sm_id, bb_id) -> Link | None:
+        return next((link for link in self.links if link.sm == sm_id and link.bb == bb_id), None)
+
+    async def link(self, sm_id: int, bb_id: int) -> None:
+        """Links two spools by hand – an earlier link of either of them ends."""
+        if not any(s.id == sm_id for s in self.sm_spools):
+            raise ValueError(f"Spoolman-Spule #{sm_id} unbekannt")
+        if not any(b.id == bb_id for b in self.bb_spools):
+            raise ValueError(f"Bambu-Spule #{bb_id} unbekannt")
+        self.links = [link for link in self.links if link.sm != sm_id and link.bb != bb_id]
+        self.never.discard((sm_id, bb_id))
+        self.links.append(Link(sm_id, bb_id, {}))
+        self._save_links()
+        self._note("ok", f"Von Hand verknüpft: Spoolman #{sm_id} ↔ Bambu #{bb_id}")
+
+    async def unlink(self, sm_id: int, bb_id: int) -> None:
+        """Separates two spools by hand – they are not matched again."""
+        self._unlink(sm_id, bb_id)
+        self.never.add((sm_id, bb_id))
+        self._save_links()
+        self._note("ok", f"Von Hand getrennt: Spoolman #{sm_id} ↔ Bambu #{bb_id}")
+
+    def _relink_from_ids(self, sm_by: dict, bb_by: dict) -> None:
+        """Links kept in Spoolman's extra field come back, e.g. after a reinstall."""
+        linked_sm = {link.sm for link in self.links}
+        linked_bb = {link.bb for link in self.links}
+        for s in sm_by.values():
+            try:
+                bb_id = int(s.extra.get("bambu_id") or 0)
+            except ValueError:
+                continue
+            if (bb_id and s.id not in linked_sm and bb_id in bb_by and bb_id not in linked_bb
+                    and (s.id, bb_id) not in self.never and not s.archived):
+                self.links.append(Link(s.id, bb_id, {}))
+                linked_sm.add(s.id)
+                linked_bb.add(bb_id)
+
+    async def _store_ids(self) -> None:
+        """Writes the linked cloud spool into Spoolman's extra field where it is missing."""
+        sm_by = {s.id: s for s in self.sm_spools}
+        for link in self.links:
+            s = sm_by.get(link.sm)
+            if s is None or s.archived or s.extra.get("bambu_id") == str(link.bb):
+                continue
+            try:
+                await self.spoolman.set_bambu_id(s, link.bb)
+                s.extra["bambu_id"] = str(link.bb)
+            except Exception as err:  # noqa: BLE001 – the links file still has it
+                _LOG.warning("Bambu-ID in Spoolman nicht gespeichert: %s", err)
+                return
     def _note(self, level: str, text: str) -> None:
         self.log.appendleft({"t": time.time(), "level": level, "text": text})
         getattr(_LOG, "warning" if level == "error" else "info")(text)
@@ -86,11 +148,15 @@ class Hub:
             except Exception as err:  # noqa: BLE001
                 self.errors["bambu"] = str(err)
         self.last_check = time.time()
+        for side in self.fails:
+            self.fails[side] = self.fails[side] + 1 if side in self.errors else 0
+        await self._health()
         if self.errors:
             self.plan = sync.Plan([])
             return False
         sm_by = {s.id: s for s in self.sm_spools}
         bb_by = {b.id: b for b in self.bb_spools}
+        self._relink_from_ids(sm_by, bb_by)
         for link in self.links:
             s, b = sm_by.get(link.sm), bb_by.get(link.bb)
             if s is not None and b is not None:
@@ -102,7 +168,7 @@ class Hub:
         bb_plan = [replace(b) for b in self.bb_spools]
         uses, notes = await self._plan_usage({s.id: s for s in sm_plan},
                                              {b.id: b for b in bb_plan}, bb_plan)
-        self.plan = sync.plan(sm_plan, bb_plan, self.links, self._options())
+        self.plan = sync.plan(sm_plan, bb_plan, self.links, self._options(), self.never)
         self.plan.actions[:0] = uses
         self.plan.warnings += notes
         return True
@@ -202,7 +268,44 @@ class Hub:
             self.last_sync = time.time()
             if self.plan.actions:
                 await self.refresh()  # also sets the agreed values of new links
+            if not self.errors:
+                await self._store_ids()
+            if failed:
+                await self.ha.notify("sync", "SpoolSync: Abgleich unvollständig",
+                                     f"{failed} Änderung(en) konnten nicht übernommen werden. "
+                                     "Einzelheiten stehen im Verlauf von SpoolSync.")
+            elif not self.errors:
+                await self.ha.dismiss("sync")
             return {"ok": failed == 0, "done": done, "failed": failed}
+
+    async def _health(self) -> None:
+        """Notifications in Home Assistant about what keeps the sync from working."""
+        b = self.bambu
+        if not b.signed_in and not b.pending:
+            await self.ha.notify(
+                "login", "SpoolSync: Anmeldung bei Bambu Lab nötig",
+                "SpoolSync ist nicht (mehr) bei der Bambu-Cloud angemeldet – die Spulen werden "
+                "nicht abgeglichen. Bitte SpoolSync öffnen und neu anmelden.")
+        else:
+            await self.ha.dismiss("login")
+        expires = getattr(b, "expires_at", None) if b.signed_in else None
+        if expires and expires - time.time() < EXPIRY_WARNING_S:
+            day = time.strftime("%d.%m.%Y", time.localtime(expires))
+            await self.ha.notify(
+                "expiry", "SpoolSync: Anmeldung läuft bald ab",
+                f"Die Anmeldung bei der Bambu-Cloud gilt bis {day}. Danach SpoolSync öffnen, "
+                "abmelden und neu anmelden.")
+        else:
+            await self.ha.dismiss("expiry")
+        for side, title in (("spoolman", "Spoolman nicht erreichbar"),
+                            ("bambu", "Bambu-Cloud nicht erreichbar")):
+            if side == "bambu" and not b.signed_in:
+                await self.ha.dismiss(side)
+            elif self.fails[side] >= FAILS_BEFORE_NOTICE:
+                await self.ha.notify(side, f"SpoolSync: {title}",
+                                     f"Seit {self.fails[side]} Prüfungen: {self.errors[side]}")
+            elif self.fails[side] == 0:
+                await self.ha.dismiss(side)
 
     async def _apply(self, a: sync.Action) -> None:
         if a.kind == "link":
@@ -213,12 +316,20 @@ class Hub:
             new_id = await self.bambu.create(a.spool)
             self.links.append(Link(a.sm, new_id, a.spool.values()))
         elif a.kind == "create_spoolman":
-            new_id = await self.spoolman.create(a.spool)
-            self.links.append(Link(new_id, a.bb, a.spool.values()))
+            spool = a.spool
+            color_name = await self._color_name(spool)
+            if color_name:  # "ABS" -> "ABS Azurblau", like the spools named in Spoolman
+                spool = replace(spool, name=f"{spool.name or spool.material} {color_name}")
+            new_id = await self.spoolman.create(spool)
+            self.links.append(Link(new_id, a.bb, {**a.spool.values(),
+                                                  "location": a.spool.location}))
         elif a.kind == "update_bambu":
             await self.bambu.update(a.spool, a.changes)
         elif a.kind in ("update_spoolman", "use_spoolman"):
             await self.spoolman.update(a.spool, a.changes)
+            link = self._link_of(a.sm, a.bb)
+            if link is not None and "location" in a.changes:
+                link.snapshot["location"] = a.changes["location"]
         elif a.kind == "use_bambu":
             await self.bambu.update(a.spool, a.changes)
         elif a.kind == "delete_bambu":
@@ -230,6 +341,19 @@ class Hub:
                 self._unlink(a.sm, a.bb)
         else:
             raise ValueError(a.kind)
+
+    async def _color_name(self, b) -> str:
+        """Bambu Lab's name of the colour of a spool from the cloud ('' if none)."""
+        if self.colors is None or b.rfid:  # spools with chip keep the name the AMS gives them
+            return ""
+        try:
+            name = await self.colors.name(b.extra.get("filamentId") or "", b.color)
+        except Exception as err:  # noqa: BLE001 – the spool is created without it
+            _LOG.warning("Farbname nicht ermittelt: %s", err)
+            return ""
+        if not name or name.casefold() in (b.name or "").casefold():
+            return ""
+        return name
 
     async def loop(self) -> None:
         while True:
@@ -261,7 +385,9 @@ class Hub:
         pairs += [(a.sm, a.bb) for a in self.plan.actions if a.kind == "link"]
         linked_sm = {sm for sm, _ in pairs}
         linked_bb = {bb for _, bb in pairs}
-        rows = [_row(sm_by.get(sm), bb_by.get(bb)) for sm, bb in pairs]
+        rows = [_row(sm_by.get(sm), bb_by.get(bb)) for sm, bb in pairs
+                if (sm_by.get(sm) and not sm_by[sm].archived)
+                or (bb_by.get(bb) and not bb_by[bb].archived)]
         rows += [_row(s, None) for s in self.sm_spools if s.id not in linked_sm and not s.archived]
         rows += [_row(None, b) for b in self.bb_spools if b.id not in linked_bb and not b.archived]
         return {
@@ -274,6 +400,7 @@ class Hub:
                          "count": sum(1 for s in self.sm_spools if not s.archived)},
             "bambu": {"signed_in": self.bambu.signed_in, "email": self.bambu.email,
                       "region": self.bambu.region, "pending": self.bambu.pending,
+                      "expires_at": getattr(self.bambu, "expires_at", None),
                       "error": self.errors.get("bambu", ""),
                       "count": sum(1 for b in self.bb_spools if not b.archived)},
             "last_check": self.last_check,
@@ -293,8 +420,7 @@ def _side(s) -> dict | None:
     return {"id": s.id, "title": s.title(), "color": s.color, "archived": s.archived,
             **{f: show(f, getattr(s, f)) for f in FIELDS},
             "remaining_raw": s.remaining_g, "total_raw": s.total_g,
-            "slot": (s.extra.get("deviceName") or "") if s.extra.get("inPrinter") else "",
-            "location": s.extra.get("location", "")}
+            "location": s.location}
 
 
 def _row(s, b) -> dict:
